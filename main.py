@@ -1,5 +1,5 @@
+# See the full Repo: https://github.com/HNRobert/Python-Style-Resume
 import MyLife
-
 
 class HNRobert:
     def __init__(self):
@@ -65,7 +65,6 @@ class HNRobert:
             "🖇️ Teamwork", "✅ Problem-solving", "📇 Communication",
             "🎨 Designing", "🚴 Cycling", "🏸 Badminton"
         )
-
 
 if __name__ == "__main__":
     resume = HNRobert()

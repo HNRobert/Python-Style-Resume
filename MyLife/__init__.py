@@ -1,5 +1,6 @@
 from .github_stats import get_language_stats, get_repo_timeline
-from .visualize import create_language_pie, create_repo_timeline, create_repo_wordcloud
+from .visualize import (create_language_pie, create_repo_timeline,
+                        create_repo_wordcloud)
 
 
 def list_skills(skills):

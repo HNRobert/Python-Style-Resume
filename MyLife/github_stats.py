@@ -84,23 +84,62 @@ def get_language_stats(username):
         print(f"Unexpected error: {e}")
         return {}
 
+def get_repo_stats(username):
+    """Get total stars and download count for all repositories."""
+    try:
+        api_url = f"https://api.github.com/users/{username}/repos"
+        response = requests.get(api_url, headers=get_headers())
+        response.raise_for_status()
+        repos = response.json()
+        
+        total_stars = 0
+        total_downloads = 0
+        
+        for repo in repos:
+            if isinstance(repo, dict):
+                # Count stars
+                total_stars += repo.get('stargazers_count', 0)
+                
+                # Get releases for download count
+                releases_url = f"https://api.github.com/repos/{username}/{repo['name']}/releases"
+                try:
+                    releases_response = requests.get(releases_url, headers=get_headers())
+                    releases_response.raise_for_status()
+                    releases = releases_response.json()
+                    
+                    # Sum up download counts from all assets in all releases
+                    for release in releases:
+                        for asset in release.get('assets', []):
+                            total_downloads += asset.get('download_count', 0)
+                except:
+                    continue
+        
+        return total_stars, total_downloads
+        
+    except Exception as e:
+        print(f"Error fetching repo stats: {e}")
+        return 0, 0
+
 def get_repo_timeline(username):
     """Fetch monthly commit activities since account creation."""
     try:
-        # 获取用户信息以确定注册时间
+        # Get total stars and downloads first
+        total_stars, total_downloads = get_repo_stats(username)
+        
+        # Get user account creation date 
         user_url = f"https://api.github.com/users/{username}"
         response = requests.get(user_url, headers=get_headers())
         response.raise_for_status()
         user_data = response.json()
         created_at = datetime.strptime(user_data['created_at'].split('T')[0], '%Y-%m-%d')
         
-        # 获取所有仓库
+        # Get all repositories
         repos_url = f"https://api.github.com/users/{username}/repos"
         response = requests.get(repos_url, headers=get_headers())
         response.raise_for_status()
         repos = response.json()
         
-        # 按月份统计commits
+        # Group commits by month
         monthly_data = defaultdict(list)
         
         for repo in repos:
@@ -108,7 +147,7 @@ def get_repo_timeline(username):
                 name = repo.get('name', '')
                 language = repo.get('language', 'Unknown')
                 
-                # 获取该仓库的所有commits
+                # Get commits for the repository
                 commits_url = f"https://api.github.com/repos/{username}/{name}/commits"
                 params = {'author': username, 'per_page': 100}
                 
@@ -117,7 +156,7 @@ def get_repo_timeline(username):
                     commits_response.raise_for_status()
                     commits = commits_response.json()
                     
-                    # 按月份分组commits
+                    # Group commits by month
                     for commit in commits:
                         if isinstance(commit, dict) and 'commit' in commit:
                             commit_date = datetime.strptime(
@@ -126,7 +165,7 @@ def get_repo_timeline(username):
                             )
                             month_key = commit_date.strftime('%Y-%m')
                             
-                            # 将commit信息添加到对应月份
+                            # Add commit to the corresponding month
                             found = False
                             for repo_data in monthly_data[month_key]:
                                 if repo_data['name'] == name:
@@ -145,11 +184,11 @@ def get_repo_timeline(username):
                     print(f"Error fetching commits for {name}: {e}")
                     continue
         
-        # 转换为时间线数据格式
+        # Transform data into a timeline format
         timeline_data = []
         for period in sorted(monthly_data.keys()):
             repos_in_period = monthly_data[period]
-            if repos_in_period:  # 只添加有活动的月份
+            if repos_in_period:  # Only include periods with commits
                 timeline_data.append({
                     'period': period,
                     'repos': repos_in_period,
@@ -157,8 +196,12 @@ def get_repo_timeline(username):
                     'languages': list(set(r['language'] for r in repos_in_period))
                 })
         
-        return timeline_data
+        return {
+            'timeline': timeline_data,
+            'total_stars': total_stars,
+            'total_downloads': total_downloads
+        }
         
     except Exception as e:
         print(f"Error fetching timeline data: {e}")
-        return []
+        return {'timeline': [], 'total_stars': 0, 'total_downloads': 0}

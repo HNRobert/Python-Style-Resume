@@ -65,7 +65,6 @@ def create_language_pie(language_stats):
                                       autopct='%1.1f%%',
                                       pctdistance=0.85,
                                       startangle=90,
-                                      shadow=True,
                                       wedgeprops={'edgecolor': 'white',
                                                  'linewidth': 2,
                                                  'antialiased': True})
@@ -107,19 +106,24 @@ def create_language_pie(language_stats):
 
 def create_repo_timeline(timeline_data):
     """Create a timeline visualization of repositories with stacked bars."""
-    if not timeline_data:
+    if not timeline_data or not isinstance(timeline_data, dict):
         return
     
     # Create figure
     plt.figure(figsize=(15, 8))
     
+    # Extract data
+    data = timeline_data.get('timeline', [])
+    total_stars = timeline_data.get('total_stars', 0)
+    total_downloads = timeline_data.get('total_downloads', 0)
+    
     # Prepare data
-    periods = [group['period'] for group in timeline_data]
+    periods = [group['period'] for group in data]
     
     # Generate unique colors and patterns for repositories
     all_repos = sorted(set(
         repo['name']
-        for period_data in timeline_data
+        for period_data in data
         for repo in period_data['repos']
     ))
     
@@ -143,7 +147,7 @@ def create_repo_timeline(timeline_data):
     bottom = np.zeros(len(periods))
     
     # Create stacked bars for each period
-    for idx, period_data in enumerate(timeline_data):
+    for idx, period_data in enumerate(data):
         sorted_repos = sorted(period_data['repos'], key=lambda x: x['commits'], reverse=True)
         
         for repo in sorted_repos:
@@ -157,8 +161,8 @@ def create_repo_timeline(timeline_data):
                          color=color, width=0.8,
                          edgecolor=style['color'],
                          linewidth=2,
-                         hatch=style['hatch'] * 2,  # 双重条纹使图案更明显
-                         alpha=0.9 if style['hatch'] else 1)  # 带条纹的稍微透明
+                         hatch=style['hatch'] * 2,
+                         alpha=0.9 if style['hatch'] else 1)
             
             bottom[idx] += commits
             all_languages.add(lang)
@@ -170,7 +174,9 @@ def create_repo_timeline(timeline_data):
                 fontsize=10, weight='bold')
     
     # Customize plot
-    plt.title("Monthly Commit Activity", pad=20, size=14, weight='bold')
+    plt.suptitle("Monthly Commit Activity", size=14, weight='bold')
+    plt.title(f"Total Stars: {total_stars} | Total Downloads: {total_downloads:,}",
+             size=10, pad=10)
     plt.xlabel("Time Period")
     plt.ylabel("Number of Commits")
     
@@ -206,7 +212,7 @@ def create_repo_timeline(timeline_data):
                bbox_to_anchor=(1.01, 0.6))
     
     # Adjust layout
-    plt.subplots_adjust(right=0.75)  # 增加右边距以适应图例
+    plt.subplots_adjust(right=0.75)  #  Adjust layout to fit legends 
     plt.savefig('repo_timeline.png', 
                 dpi=300,
                 bbox_inches='tight',
@@ -215,12 +221,17 @@ def create_repo_timeline(timeline_data):
 
 def create_repo_wordcloud(timeline_data):
     """Create a word cloud visualization of repositories weighted by commit counts."""
-    if not timeline_data:
+    if not timeline_data or not isinstance(timeline_data, dict):
+        return
+    
+    # Extract timeline data from dictionary
+    data = timeline_data.get('timeline', [])
+    if not data:
         return
     
     # Calculate total commits per repository
     repo_weights = defaultdict(int)
-    for period in timeline_data:
+    for period in data:
         for repo in period['repos']:
             repo_weights[repo['name']] += repo['commits']
     
